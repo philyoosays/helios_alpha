@@ -17,6 +17,8 @@ let msgBox = document.querySelector('.messages');
 let startButton = document.querySelector('.start');
 let stopButton = document.querySelector('.stop');
 
+msgBox.scrollTop = msgBox.scrollHeight;
+
 const library = {
   intent: {
     'find me': 'request',
@@ -37,6 +39,14 @@ const library = {
     'tomorrow': getTomorrow(),
   }
 }
+
+const personalityGreeting = [
+  'Don\'t make a girl wait so long before you talk to her. Anyways. ', 'Oh hey there. ', 'Yes master. '
+]
+
+const greetings = [
+  'How can I help you', 'How can I help you today', 'What may I help you with', 'What may I help you with today', 'How may I be of service to you?'
+]
 
 function getTomorrow() {
   let date = new Date();
@@ -63,6 +73,35 @@ function addMessageToBox(type, message) {
   msgBox.appendChild(hr);
 }
 
+function selectGreeting() {
+  let toSay = '';
+  let coinFlip = Math.random() > .5 ? true : false;
+  let randOne = Math.floor(Math.random() * personalityGreeting.length);
+  let randTwo = Math.floor(Math.random() * greetings.length);
+  if(coinFlip) {
+    toSay += personalityGreeting[randOne];
+  }
+  toSay += greetings[randTwo];
+  return toSay
+}
+
+function speak(toSay, lang) {
+  let voices = synth.getVoices()
+  let sayThis = new SpeechSynthesisUtterance(toSay);
+  let name = 'Karen';
+  if(lang !== undefined) {
+    name = 'Yuna'
+  }
+  voices.forEach(d => {
+    if(d.name === name) {
+      sayThis.voice = d
+    }
+  })
+  sayThis.pitch = 1.2;
+  sayThis.rate = 1;
+  synth.speak(sayThis);
+}
+
 function activateListenMode(initial) {
   console.log('starting')
   if(initial === 'korean') {
@@ -81,7 +120,9 @@ function activateListenMode(initial) {
           addMessageToBox('helios', '어떻게 도와 드릴까요?');
           recognition.start();
         } else {
-          addMessageToBox('helios', 'How can I help you?');
+          let toSay = selectGreeting();
+          addMessageToBox('helios', toSay);
+          speak(toSay)
         }
 
       }, 1250);
@@ -147,26 +188,10 @@ function checkStopWord(hashObj) {
   return hardStop;
 }
 
-function speak(toSay, lang) {
-  let voices = synth.getVoices()
-  let sayThis = new SpeechSynthesisUtterance(toSay);
-  let name = 'Karen';
-  if(lang !== undefined) {
-    name = 'Yuna'
-  }
-  voices.forEach(d => {
-    if(d.name === name) {
-      sayThis.voice = d
-    }
-  })
-  sayThis.pitch = 1.2;
-  sayThis.rate = 1;
-  synth.speak(sayThis);
-}
-
 startButton.addEventListener('click', (e) => {
   e.preventDefault();
   // e.stopPropagation();
+  localStorage.clear();
   localStorage.setItem('upState', true);
   recognition.start();
 })
@@ -226,7 +251,7 @@ recognition.onend = () => {
   statusLabel.innerText = 'Status: Self End';
   startButton.classList.remove('selected');
   // console.log('Self end')
-  let language = 'korean'
+  let language = localStorage.getItem('language')
   if(localStorage.getItem('upState') === 'true' && language === 'english') {
     console.log(localStorage.getItem('upState'))
     recognition.start();
@@ -309,6 +334,29 @@ function dumbBrain(hash) {
       replyShow = `The current time is ${timeObj.timeShow}`
       addMessageToBox('helios', replyShow);
       break;
+    case 'is my mother home':
+    case 'is my mom home':
+    case 'is she in':
+    case 'is she currently in':
+    case 'is she at home':
+    case 'is she home':
+    case 'is she currently home':
+    case 'is she currently at home':
+      fetch('http://67.250.209.166:6001/api/ping', {
+        headers: {
+          secretHandshake: 'authorized'
+        }
+      })
+      .then(response => response.json())
+        .then(data => {
+          if(data === 'Yes') {
+            addMessageToBox('helios', 'She is currently at home.')
+            speak('She is indeed, currently at home');
+          } else {
+            addMessageToBox('helios', 'She is currently not at home.')
+            speak('She currently not in at the moment.');
+          }
+        })
   }
 }
 
